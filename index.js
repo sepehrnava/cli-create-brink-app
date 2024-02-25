@@ -13,7 +13,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function init() {
   console.log("Welcome to the Brink Agency App generator!\n".yellow);
 
-  console.log("By default Typescript is included in the project.\n".brightBlue);
+  console.log(
+    "By default Typescript is installed in the project.\n".brightBlue
+  );
 
   const { projectName } = await inquirer.prompt([
     {
@@ -57,12 +59,12 @@ async function init() {
       message: "What features do you want to include?",
       choices: [
         "Tailwind CSS",
-        "GSAP",
-        "zustand",
         "daisyUI",
+        "zustand",
+        "GSAP",
         "smooth-scrollbar",
       ],
-      default: ["Tailwind CSS", "GSAP", "zustand", "daisyUI"],
+      default: ["Tailwind CSS", "zustand", "daisyUI"],
     },
   ]);
 
@@ -183,7 +185,7 @@ async function init() {
   );
 
   // add the name of the project in package.json file
-  packageJson.name = projectName;
+  // packageJson.name = projectName;
   fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
   console.log(
@@ -192,11 +194,23 @@ async function init() {
 
   if (answers.features.includes("GSAP")) {
     console.log(
-      "\nDon't forget to add your GSAP license key in the .npmrc file!\n".yellow
+      "Don't forget to add your GSAP license key in the .npmrc file!\n".yellow
     );
   }
 
-  console.log("\nHappy coding!\n".brightBlue);
+  console.log(
+    `To start the project, go to ${projectName} directory and run the following commands:\n`
+      .brightBlue
+  );
+
+  console.log("npm install".brightBlue);
+  console.log("npm run dev".brightBlue);
+
+  console.log("or".yellow);
+  console.log("yarn install".brightBlue);
+  console.log("yarn dev".brightBlue);
+
+  console.log("\nHappy coding!\n".yellow);
 }
 
 init();
