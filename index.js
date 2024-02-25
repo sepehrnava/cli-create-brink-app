@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 import inquirer from "inquirer";
-import shell from "shelljs";
 import fs from "fs";
 import path from "path";
 import colors from "colors";
 import { fileURLToPath } from "url";
+import copyTemplateFiles from "./lib/copyTemplateFiles.js";
 
 // Define __dirname in ESM
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -66,19 +66,12 @@ async function init() {
     },
   ]);
 
-  function copyTemplateFiles(source, destination) {
-    // check if the destination directory exists
-    if (!fs.existsSync(destination)) {
-      fs.mkdirSync(destination, { recursive: true });
-    }
-
-    shell.cp("-R", path.join(source, "*"), destination); // Copy non-hidden files
-    shell.cp("-R", path.join(source, ".*"), destination); // Copy hidden files
-  }
-
   let templateDir = path.join(__dirname, "templates", "default");
 
   copyTemplateFiles(templateDir, projectDir);
+
+  const packageJsonPath = path.join(projectDir, "package.json");
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath).toString());
 
   // remove if eslint is not selected
   if (!answers.eslint) {
@@ -89,15 +82,121 @@ async function init() {
     fs.unlinkSync(path.join(projectDir, ".prettierrc"));
   }
 
+  // conditionally remove the features
+
+  if (!answers.features.includes("zustand")) {
+    fs.rm(path.join(projectDir, "src/store"), { recursive: true }, (err) => {
+      if (err) {
+        console.error(err);
+      }
+    });
+    delete packageJson.dependencies.zustand;
+  }
+
+  if (!answers.features.includes("Tailwind CSS")) {
+    fs.rm(path.join(projectDir, "tailwind.config.ts"), (err) => {
+      if (err) {
+        console.error(err);
+      }
+    });
+    fs.rm(path.join(projectDir, "postcss.config.js"), (err) => {
+      if (err) {
+        console.error(err);
+      }
+    });
+    const globalCssPath = path.join(projectDir, "src/styles/globals.scss");
+    const globalCss = fs.readFileSync(
+      path.join(__dirname, "templates", "noTailwindCssFile", "globals.scss")
+    );
+    fs.writeFileSync(globalCssPath, globalCss);
+
+    delete packageJson.devDependencies.tailwindcss;
+    delete packageJson.devDependencies.autoprefixer;
+  }
+
+  if (!answers.features.includes("daisyUI")) {
+    const tailwindConfigPath = path.join(projectDir, "tailwind.config.ts");
+    const tailwindConfig = fs
+      .readFileSync(tailwindConfigPath)
+      .toString()
+      .replace("plugins: [require('daisyui')],", "");
+    fs.writeFileSync(tailwindConfigPath, tailwindConfig);
+
+    delete packageJson.devDependencies.daisyui;
+  }
+
+  if (!answers.features.includes("GSAP")) {
+    const appFile = path.join(projectDir, "src/pages/_app.tsx");
+    let appFileContent = fs.readFileSync(appFile).toString();
+    appFileContent = appFileContent.replace("import { gsap } from 'gsap';", "");
+    appFileContent = appFileContent.replace(
+      "import { ScrollTrigger } from 'gsap/dist/ScrollTrigger';",
+      ""
+    );
+    appFileContent = appFileContent.replace(
+      "import { SplitText } from 'gsap/dist/SplitText';",
+      ""
+    );
+    appFileContent = appFileContent.replace(
+      "gsap.registerPlugin(ScrollTrigger, SplitText);",
+      ""
+    );
+    fs.writeFileSync(appFile, appFileContent);
+    delete packageJson.dependencies.gsap;
+  }
+  if (answers.features.includes("smooth-scrollbar")) {
+    const layoutFile = path.join(projectDir, "src/components/Layout/index.tsx");
+    if (answers.features.includes("GSAP")) {
+      const withGSAP = fs
+        .readFileSync(
+          path.join(__dirname, "templates", "smoothScrollFiles", "withGSAP.tsx")
+        )
+        .toString();
+      fs.writeFileSync(layoutFile, withGSAP);
+    } else {
+      const withoutGSAP = fs
+        .readFileSync(
+          path.join(
+            __dirname,
+            "templates",
+            "smoothScrollFiles",
+            "withoutGSAP.tsx"
+          )
+        )
+        .toString();
+      fs.writeFileSync(layoutFile, withoutGSAP);
+    }
+  } else {
+    delete packageJson.dependencies["smooth-scrollbar"];
+  }
+
+  // rename .gitignore.template to .gitignore
+  fs.renameSync(
+    path.join(projectDir, ".gitignore.template"),
+    path.join(projectDir, ".gitignore")
+  );
+
+  // rename .npmrc.template to .npmrc
+  fs.renameSync(
+    path.join(projectDir, ".npmrc.template"),
+    path.join(projectDir, ".npmrc")
+  );
+
   // add the name of the project in package.json file
-  const packageJsonPath = path.join(projectDir, "package.json");
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath).toString());
   packageJson.name = projectName;
   fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
 
   console.log(
-    `Template files have been copied successfully to ${projectName}.`.green
+    `\nTemplate files have been copied successfully to ${projectName}.\n`.green
   );
+
+  if (answers.features.includes("GSAP")) {
+    console.log(
+      "\nDon't forget to add your GSAP license key in the .npmrc file!\n".yellow
+    );
+  }
+
+  console.log("\nHappy coding!\n".brightBlue);
 }
 
 init();

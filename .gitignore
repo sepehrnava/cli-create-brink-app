@@ -5,6 +5,7 @@ out/
 
 # Node modules and dependencies
 node_modules/
+My Brink App/
 
 # Environment variables
 .env.local
